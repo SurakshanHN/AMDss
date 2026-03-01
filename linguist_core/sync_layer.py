@@ -41,7 +41,7 @@ class ZeroMQSyncLayer:
         self._running = True
         self._listener_thread = threading.Thread(target=self._listen_loop, daemon=True)
         self._listener_thread.start()
-        logger.info(f"Node {self.node_id} listening on sub ports {self.sub_ports}.")
+        logger.info(f"Node {self.node_id} listening for peers: {self.peer_ips}.")
 
     def _listen_loop(self):
         while self._running:

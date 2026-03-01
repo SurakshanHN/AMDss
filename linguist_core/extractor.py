@@ -64,31 +64,47 @@ class KnowledgeExtractor:
             return self._fallback_extract(text, source_ref)
             
     def _fallback_extract(self, text, source_ref):
-        """Intelligent semantic fallback when LLM structure parsing fails"""
-        import re
-        # Look for specific meaningful verbs mandated by the system constraints
-        meaningful_verbs = [
-            'causes', 'derives_from', 'contradicts', 'enables', 'measured_by', 
-            'acts_on', 'produces', 'underlies', 'requires', 'provides', 
-            'outlines', 'implements', 'defines', 'explains', 'includes', 'supports'
-        ]
+        """Intelligent semantic fallback using spaCy Dependency Parsing when LLM fails"""
+        try:
+            import spacy
+            if not getattr(self, "spacy_nlp", None):
+                self.spacy_nlp = spacy.load("en_core_web_sm")
+        except ImportError:
+            logger.error("spaCy missing. Falling back to empty tuple generation.")
+            return []
+
+        doc = self.spacy_nlp(text)
+        triplets = []
         
-        words = text.split()
-        for i, word in enumerate(words):
-            clean_word = re.sub(r'[^\w\s]', '', word.lower())
-            if clean_word in meaningful_verbs or clean_word + "s" in meaningful_verbs or clean_word.rstrip('s') in meaningful_verbs:
-                # Found a semantic edge!
-                subject = " ".join(words[max(0, i-3):i]).strip()
-                obj = " ".join(words[i+1:min(len(words), i+4)]).strip()
-                # Clean up punctuation
-                subject = re.sub(r'[^\w\s]', '', subject).title()
-                obj = re.sub(r'[^\w\s]', '', obj).title()
+        for token in doc:
+            # Find the main action verb in the sentence chunk
+            if token.pos_ == "VERB" and (token.dep_ == "ROOT" or token.dep_ == "advcl" or token.dep_ == "ccomp"):
+                subject = None
+                obj = None
                 
-                # Only return if we bounded actual entities
+                # Look for syntactic subject and object attached to this verb
+                for child in token.children:
+                    if child.dep_ in ("nsubj", "nsubjpass"):
+                        # Get the entire noun phrase for context, not just the single word
+                        subject = " ".join([w.text for w in child.subtree]).strip()
+                    if child.dep_ in ("dobj", "pobj", "attr", "acomp"):
+                        obj = " ".join([w.text for w in child.subtree]).strip()
+                        
                 if subject and obj and len(subject) > 2 and len(obj) > 2:
-                    return [KnowledgeTriplet(subject=subject, predicate=clean_word, object=obj, source_reference=source_ref)]
+                    # Clean out massive rambling subtrees (limit to 30 chars for UI aesthetics)
+                    subject = subject[:30].title()
+                    obj = obj[:30].title()
+                    predicate = token.lemma_.lower()
+                    triplets.append(KnowledgeTriplet(subject=subject, predicate=predicate, object=obj, source_reference=source_ref))
         
-        # If we failed to find a true semantic relationship, return nothing.
-        # DO NOT pollute the graph with generic 'associated_with' edges.
-        return []
+        # Deduplicate elements
+        unique_triplets = []
+        seen = set()
+        for t in triplets:
+            key = f"{t.subject}-{t.predicate}-{t.object_}"
+            if key not in seen:
+                seen.add(key)
+                unique_triplets.append(t)
+                
+        return unique_triplets
 
