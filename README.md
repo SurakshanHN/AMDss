@@ -64,32 +64,39 @@ A premium, dark-mode dashboard tailored for technical reviewers.
 - **Python 3.10+** (Recommended)
 - **AMD Softwares**: ROCm 6.0+ (Linux) or Ryzen AI SDK (Windows)
 
-### 1. Installation
+### 1. Installation & Environment
 ```bash
 git clone https://github.com/GiGiKoneti/AMDss.git
 cd AMDss
-python3 -m venv venv
-# Linux/Mac
-source venv/bin/activate
-# Windows
-.\venv\Scripts\activate
+python3 -m venv cleanenv --upgrade-deps
+
+# Activate Environment
+# macOS / Linux:
+source cleanenv/bin/activate
+# Windows:
+.\cleanenv\Scripts\activate
+
+# Verify Environment
+which python # Should point to .../AMDss/cleanenv/bin/python
+
+# Install Dependencies
 pip install -r requirements.txt
 ```
 
 ### 2. Execution (Distributed Mode)
-To demo the synchronization, run on multiple machines:
+To demo the synchronization, run on multiple machines (e.g., Node A and Node B).
 
-**Node A (IP: 192.168.0.101):**
+**Node A (at 192.168.0.107):**
 ```bash
-export PEER_IPS="192.168.0.102"
+export PEER_IPS="192.168.0.112"
 export PYTHONPATH=$PYTHONPATH:.
 python3 -m linguist_core.api_server &
 python3 -m linguist_core.ui_app
 ```
 
-**Node B (IP: 192.168.0.102):**
+**Node B (at 192.168.0.112):**
 ```bash
-export PEER_IPS="192.168.0.101"
+export PEER_IPS="192.168.0.107"
 export PYTHONPATH=$PYTHONPATH:.
 python3 -m linguist_core.api_server &
 python3 -m linguist_core.ui_app
@@ -97,7 +104,7 @@ python3 -m linguist_core.ui_app
 
 ---
 
-## � Benchmarks (AMD Ryzen AI 9 HX 370)
+## 📊 Benchmarks (AMD Ryzen AI 9 HX 370)
 | Task | Execution Time | Hardware |
 | :--- | :--- | :--- |
 | Semantic Extraction (10pg PDF) | 1.2s | CPU + NPU |
